@@ -1,16 +1,13 @@
 from flask import Flask, jsonify, render_template, request
-import pymysql
+from pymongo import MongoClient
 
 app = Flask(__name__)
 
-def get_db_connection():
-    connection = pymysql.connect(host='mydb.cfiegs8oiut2.sa-east-1.rds.amazonaws.com',  # Replace with your RDS endpoint
-                                 user='dbuser',      # Replace with your RDS username
-                                 password='ifsp1234',  # Replace with your RDS password
-                                 db='devprojdb',   # Replace with your database name
-                                 charset='utf8mb4',
-                                 cursorclass=pymysql.cursors.DictCursor)
-    return connection
+MONGO_URI = "mongodb+srv://dbuser:dbpassword@cluster0.zuzz0tc.mongodb.net/?appName=Cluster0"
+
+client = MongoClient(MONGO_URI)
+db = client['devprojdb'] 
+collection = db['example_table']
 
 @app.route('/health')
 def health():
@@ -18,40 +15,26 @@ def health():
 
 @app.route('/create_table')
 def create_table():
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    create_table_query = """
-        CREATE TABLE IF NOT EXISTS example_table (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL
-        )
-    """
-    cursor.execute(create_table_query)
-    connection.commit()
-    connection.close()
-    return "Table created successfully"
+    return "MongoDB Pronto! (Não é necessário criar tabelas manualmente)"
 
 @app.route('/insert_record', methods=['POST'])
 def insert_record():
     name = request.json['name']
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    insert_query = "INSERT INTO example_table (name) VALUES (%s)"
-    cursor.execute(insert_query, (name,))
-    connection.commit()
-    connection.close()
+    
+    collection.insert_one({"name": name})
+    
     return "Record inserted successfully"
 
 @app.route('/data')
 def data():
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    cursor.execute('SELECT * FROM example_table')
-    result = cursor.fetchall()
-    connection.close()
-    return jsonify(result)
 
-# UI route
+    records = list(collection.find())
+  
+    for record in records:
+        record['_id'] = str(record['_id'])
+        
+    return jsonify(records)
+
 @app.route('/')
 def index():
     return render_template('index.html')
